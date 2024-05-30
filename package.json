@@ -1,0 +1,47 @@
+{
+  "name": "comment-analyzer",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "start:dev:db": "docker run --rm --name live-stream-mongodb -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=local-admin -e MONGO_INITDB_ROOT_PASSWORD=local-admin-pwd mongo"
+  },
+  "dependencies": {
+    "@twurple/auth": "^7.1.0",
+    "@twurple/chat": "^7.1.0",
+    "@twurple/easy-bot": "^7.1.0",
+    "@uidotdev/usehooks": "^2.4.1",
+    "change-case": "^5.4.4",
+    "js-cookie": "^3.0.5",
+    "mongoose": "^8.3.4",
+    "next": "14.2.3",
+    "next-auth": "^4.24.7",
+    "next-client-cookies": "^1.1.1",
+    "query-string": "^9.0.0",
+    "react": "^18",
+    "react-dom": "^18",
+    "react-indexed-db-hook": "^1.0.14",
+    "react-table": "^7.8.0",
+    "socket.io": "^4.7.5",
+    "twurple": "^1.0.0"
+  },
+  "devDependencies": {
+    "@langchain/core": "^0.1.61",
+    "@langchain/openai": "^0.0.28",
+    "@types/js-cookie": "^3.0.6",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/react-table": "^7.7.20",
+    "daisyui": "^4.11.1",
+    "langchain": "^0.1.36",
+    "mongodb": "^6.6.0",
+    "mongoose": "^8.3.3",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
+}
