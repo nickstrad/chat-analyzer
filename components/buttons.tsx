@@ -1,7 +1,6 @@
 "use client";
 
 import { useSession, signIn, signOut } from "next-auth/react";
-import { useEffect } from "react";
 import Link from "next/link";
 
 export function SignInButton() {
@@ -12,12 +11,27 @@ export function SignInButton() {
   }
 
   if (status === "authenticated") {
-    return <Link href="/dashboard">dashboard</Link>;
+    return (
+      <Link className="link link-hover" href="/dashboard">
+        Console
+      </Link>
+    );
   }
 
   return <button onClick={() => signIn()}>Sign In</button>;
 }
 
 export function SignOutButton() {
-  return <button onClick={() => signOut()}>Sign Out</button>;
+  return (
+    <button
+      onClick={() => {
+        signOut({
+          redirect: true,
+          callbackUrl: "/",
+        });
+      }}
+    >
+      Logout
+    </button>
+  );
 }

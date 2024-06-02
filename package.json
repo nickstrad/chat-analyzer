@@ -10,6 +10,9 @@
     "start:dev:db": "docker run --rm --name live-stream-mongodb -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=local-admin -e MONGO_INITDB_ROOT_PASSWORD=local-admin-pwd mongo"
   },
   "dependencies": {
+    "@heroicons/react": "^1.0.6",
+    "@tailwindcss/forms": "^0.5.7",
+    "@twurple/api": "^7.1.0",
     "@twurple/auth": "^7.1.0",
     "@twurple/chat": "^7.1.0",
     "@twurple/easy-bot": "^7.1.0",
@@ -26,7 +29,8 @@
     "react-indexed-db-hook": "^1.0.14",
     "react-table": "^7.8.0",
     "socket.io": "^4.7.5",
-    "twurple": "^1.0.0"
+    "twurple": "^1.0.0",
+    "zod-to-json-schema": "^3.23.0"
   },
   "devDependencies": {
     "@langchain/core": "^0.1.61",
@@ -36,12 +40,13 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/react-table": "^7.7.20",
+    "autoprefixer": "^10.4.19",
     "daisyui": "^4.11.1",
     "langchain": "^0.1.36",
     "mongodb": "^6.6.0",
     "mongoose": "^8.3.3",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.1",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
     "typescript": "^5"
   }
 }
