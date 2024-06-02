@@ -33,9 +33,7 @@ export default function StreamWatcher({
     const authProvider = new StaticAuthProvider(user.id, token);
     const bot = new Bot({
       authProvider,
-      // channels: [user.name!],
-      // channesl:['/mogulmoves']
-      channels: [],
+      channels: [user.name!],
     });
 
     bot.onMessage((msg) => {
