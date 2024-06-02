@@ -1,6 +1,6 @@
 import StreamWatcher from "./StreamWatcher";
 import { authOptions } from "../api/auth/[...nextauth]/route";
-import { User, getServerSession } from "next-auth";
+import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import React from "react";
 
@@ -13,7 +13,6 @@ export default async function Dashboard() {
 
   return (
     <>
-      <h1>Dashboard</h1>
       <StreamWatcher user={session.user} token={session.accessToken || ""} />
     </>
   );

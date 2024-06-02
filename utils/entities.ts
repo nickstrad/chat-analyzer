@@ -8,4 +8,5 @@ export interface LLMResponse {
   topic: string;
   sentimentRating: number;
   description: string;
+  uid?: string;
 }

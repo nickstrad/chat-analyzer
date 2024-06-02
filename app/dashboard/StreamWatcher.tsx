@@ -15,7 +15,7 @@ export default function StreamWatcher({
 }) {
   const [batchSize, setBatchSize] = React.useState(100);
   const [isConnected, setIsConnected] = React.useState(false);
-  const [msgs, isLoading, topicData, appendMessageEvent] =
+  const [msgs, isLoading, topicData, appendMessageEvent, deleteEvent] =
     useLLMHelper(batchSize);
   const handleBatchSizeChange: ChangeEventHandler<HTMLInputElement> = (ev) => {
     try {
@@ -46,46 +46,34 @@ export default function StreamWatcher({
 
   return (
     <main>
-      <h2>
-        {isConnected
-          ? `Connected ${user?.name ? `as ${user.name}` : ""}`
-          : "Not Connected"}
-      </h2>
-      <div>
-        <label htmlFor="batchSizeInput">Comment Batch Size</label>
-        <input
-          id="batchSizeInput"
-          value={batchSize}
-          type="number"
-          onChange={handleBatchSizeChange}
-        />
+      <div className="indicator">
+        {isConnected ? (
+          <>
+            <span className="indicator-item badge badge-secondary">{}</span>
+            <p>Connected {user?.name ? `to ${user.name}'s live chat` : ""}</p>
+          </>
+        ) : (
+          <>
+            <span className="indicator-item badge badge-secondary">{}</span>
+            <p>Not Connected</p>
+          </>
+        )}
       </div>
 
-      <div className="stats stats-vertical lg:stats-horizontal shadow">
-        <h2>Message Data</h2>
-        <div className="stat">
-          <div className="stat-desc">
-            Total amount of messages analyzed in stream
-          </div>
-        </div>
-        <div className="stat">
-          <div className="stat-title">
-            Next Batch( {`${msgs.length}/${batchSize}`})
-          </div>
-          <div className="stat-value">
-            <progress
-              className="progress w-56"
-              value={msgs.length}
-              max={batchSize}
-            />
-          </div>
-        </div>
+      <div className="grid h-20 card rounded-box">
+        <label className="input input-bordered flex items-center gap-2">
+          Comment Batch Size
+          <input
+            className="grow"
+            id="batchSizeInput"
+            value={batchSize}
+            type="number"
+            onChange={handleBatchSizeChange}
+          />
+        </label>
       </div>
 
-      <div>
-        <h2>Topic Data</h2>
-        <Table data={topicData} />
-      </div>
+      <Table data={topicData} handleDelete={deleteEvent} />
     </main>
   );
 }

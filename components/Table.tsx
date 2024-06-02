@@ -14,6 +14,7 @@ import {
   ChevronDoubleRightIcon,
   //@ts-ignore
 } from "@heroicons/react/solid";
+import { MdOutlineDeleteOutline } from "react-icons/md";
 
 export function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
@@ -119,6 +120,11 @@ export const COLUMNS = [
     Header: "Description",
     accessor: "description",
   },
+  {
+    Header: "Action",
+    accessor: "uid",
+    Cell: ActionCell,
+  },
 ];
 
 export function SentimentPill({ value }: { value: number }) {
@@ -135,7 +141,53 @@ export function SentimentPill({ value }: { value: number }) {
     </span>
   );
 }
-export const Table = ({ data }: { data: any[] }): JSX.Element => {
+
+export function ActionCell(props: {
+  value: string;
+  handleDelete: (uid: string) => void;
+}) {
+  const { value, handleDelete } = props;
+  const modalId = `modal-${value}`;
+  return (
+    <div>
+      <dialog id={modalId} className="modal">
+        <div className="modal-box">
+          <h3 className="font-bold text-lg">
+            Are you sure you want to delete this topic?
+          </h3>
+          <p className="py-4">
+            Press ESC key or click the button below to close
+          </p>
+          <div className="modal-action">
+            <form method="dialog">
+              {/* if there is a button in form, it will close the modal */}
+              <button
+                className="btn btn-active btn-error"
+                onClick={() => handleDelete(value)}
+              >
+                Delete
+              </button>
+              <button className="btn btn-active btn-neutral">Cancel</button>
+            </form>
+          </div>
+        </div>
+      </dialog>
+      <MdOutlineDeleteOutline
+        className="text-red-600"
+        //@ts-ignore
+        onClick={() => document.getElementById(modalId).showModal()}
+      />
+    </div>
+  );
+}
+
+export const Table = ({
+  data,
+  handleDelete,
+}: {
+  data: any[];
+  handleDelete: (uid: string) => void;
+}): JSX.Element => {
   const columns = React.useMemo(() => COLUMNS, []);
   const {
     getTableProps,
@@ -146,6 +198,7 @@ export const Table = ({ data }: { data: any[] }): JSX.Element => {
     ...rest
   } = useTable(
     {
+      //@ts-ignore
       columns,
       data,
     },
@@ -170,7 +223,7 @@ export const Table = ({ data }: { data: any[] }): JSX.Element => {
     setPageSize,
   } = rest as any;
   return (
-    <div className="mt-4">
+    <div className="mt-8 p-8 mt-4 shadow border-b border-gray-200">
       <div className="flex gap-x-2">
         <GlobalFilter
           preGlobalFilteredRows={preGlobalFilteredRows}
@@ -186,12 +239,7 @@ export const Table = ({ data }: { data: any[] }): JSX.Element => {
               headerGroup.headers.map((column) =>
                 //@ts-ignore
                 column.Filter ? (
-                  <div key={column.id}>
-                    <label htmlFor={column.id}>
-                      {column.render("Header")}:{" "}
-                    </label>
-                    {column.render("Filter")}
-                  </div>
+                  <div key={column.id}>{column.render("Filter")}</div>
                 ) : null
               )
             )}
@@ -199,7 +247,7 @@ export const Table = ({ data }: { data: any[] }): JSX.Element => {
               headerGroup.headers.map((column) => (
                 <th
                   scope="col"
-                  className="group px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  className="group px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                   //@ts-ignore
                   {...column.getHeaderProps(column.getSortByToggleProps())}
                 >
@@ -240,6 +288,10 @@ export const Table = ({ data }: { data: any[] }): JSX.Element => {
                       {/*@ts-ignore*/}
                       {row.cells.map((cell, idx) => {
                         const { key, ...rest } = cell.getCellProps();
+                        if (cell.column.Header === "Action") {
+                          // console.log(cell);
+                          // console.log(cell.value);
+                        }
                         return (
                           <td
                             {...rest}
@@ -249,10 +301,26 @@ export const Table = ({ data }: { data: any[] }): JSX.Element => {
                           >
                             {cell.column.Cell.name === "defaultRenderer" ? (
                               <div className="text-sm text-gray-500">
-                                {cell.render("Cell")}
+                                {cell.render(
+                                  "Cell",
+                                  cell.column.Header === "Action"
+                                    ? {
+                                        handleDelete: () =>
+                                          handleDelete(cell.value),
+                                      }
+                                    : {}
+                                )}
                               </div>
                             ) : (
-                              cell.render("Cell")
+                              cell.render(
+                                "Cell",
+                                cell.column.Header === "Action"
+                                  ? {
+                                      handleDelete: () =>
+                                        handleDelete(cell.value),
+                                    }
+                                  : {}
+                              )
                             )}
                           </td>
                         );
@@ -280,6 +348,8 @@ export const Table = ({ data }: { data: any[] }): JSX.Element => {
               Page <span className="font-medium">{state.pageIndex + 1}</span> of{" "}
               {pageOptions.length}
             </span>
+          </div>
+          <div className="flex gap-x-2">
             <label>
               <span className="sr-only">Items Per Page</span>
               <select
@@ -335,11 +405,6 @@ export const Table = ({ data }: { data: any[] }): JSX.Element => {
             </nav>
           </div>
         </div>
-      </div>
-      <div>
-        <pre>
-          <code>{JSON.stringify(state, null, 2)}</code>
-        </pre>
       </div>
     </div>
   );

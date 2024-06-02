@@ -1,5 +1,7 @@
 import React from "react";
 import { LLMResponse } from "./entities";
+import ShortUniqueId from "short-unique-id";
+const { randomUUID } = new ShortUniqueId({ length: 10 });
 
 const DEFAULT_TOPIC_DATA: LLMResponse[] = [
   {
@@ -28,16 +30,31 @@ const DEFAULT_TOPIC_DATA: LLMResponse[] = [
     description: "Excitement about finally landing",
   },
 ];
+
+const extendTopicData = (response: LLMResponse): LLMResponse => ({
+  ...response,
+  uid: randomUUID(),
+});
+
 export const useLLMHelper = (
   batchSize: number
-): [any[], boolean, LLMResponse[], (msg: any) => void] => {
+): [
+  any[],
+  boolean,
+  LLMResponse[],
+  (msg: any) => void,
+  (uid: string) => void
+] => {
   const [isLoading, setLoading] = React.useState(false);
   const [msgs, setMsgs] = React.useState<any[]>([]);
-  const [topicData, setTopicData] = React.useState<LLMResponse[]>([
-    ...DEFAULT_TOPIC_DATA,
-    ...DEFAULT_TOPIC_DATA,
-    ...DEFAULT_TOPIC_DATA,
-  ]);
+  const [topicData, setTopicData] = React.useState<LLMResponse[]>(
+    //   [
+    //   ...DEFAULT_TOPIC_DATA.map(extendTopicData),
+    //   ...DEFAULT_TOPIC_DATA.map(extendTopicData),
+    //   ...DEFAULT_TOPIC_DATA.map(extendTopicData),
+    // ]
+    []
+  );
 
   const handleLLMCall = React.useCallback(
     async (comments: string): Promise<LLMResponse[]> => {
@@ -51,7 +68,7 @@ export const useLLMHelper = (
           body: JSON.stringify(comments),
         });
         const { data } = await resp.json();
-        return data;
+        return data.map(extendTopicData);
       } catch (err) {
         console.error(err);
       } finally {
@@ -96,5 +113,9 @@ export const useLLMHelper = (
     );
   };
 
-  return [msgs, isLoading, topicData, appendMessageEvent];
+  const deleteTopic = (uid: string) => {
+    const newData = [...topicData].filter((t) => t.uid !== uid);
+    setTopicData(newData);
+  };
+  return [msgs, isLoading, topicData, appendMessageEvent, deleteTopic];
 };

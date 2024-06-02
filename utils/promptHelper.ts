@@ -13,7 +13,7 @@ export async function runLiveStreamPrompt(
   }
 
   const model = new AzureChatOpenAI({
-    apiKey: process.env.NEXT_LLM_API_KEY || "",
+    apiKey: process.env.NEXT_LLM_API_KEY,
     temperature: 0,
     model: process.env.NEXT_LLM_MODEL_NAME,
     openAIBasePath: process.env.NEXT_LLM_API_BASE_PATH,

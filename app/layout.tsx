@@ -15,7 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <AuthProvider>
-      <html lang="en">
+      <html data-theme="cupcake" lang="en">
         <body>
           <NavMenu />
           <div className="min-h-screen bg-gray-100 text-gray-900">
