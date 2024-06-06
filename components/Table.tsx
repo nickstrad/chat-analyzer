@@ -250,6 +250,7 @@ export const Table = ({
                   className="group px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                   //@ts-ignore
                   {...column.getHeaderProps(column.getSortByToggleProps())}
+                  key={column.getHeaderProps().key}
                 >
                   <div className="flex items-center justify-between">
                     {column.render("Header")}

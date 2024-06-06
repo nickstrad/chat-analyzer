@@ -5,6 +5,7 @@ import { Bot } from "@twurple/easy-bot";
 import { User } from "next-auth";
 import { Table } from "@/components/Table";
 import { useLLMHelper } from "@/utils/hook";
+import { CiSettings } from "react-icons/ci";
 
 export default function StreamWatcher({
   user,
@@ -15,6 +16,7 @@ export default function StreamWatcher({
 }) {
   const [batchSize, setBatchSize] = React.useState(100);
   const [isConnected, setIsConnected] = React.useState(false);
+  const [currentChannel, setCurrentChannel] = React.useState(user?.name || "");
   const [msgs, isLoading, topicData, appendMessageEvent, deleteEvent] =
     useLLMHelper(batchSize);
   const handleBatchSizeChange: ChangeEventHandler<HTMLInputElement> = (ev) => {
@@ -26,14 +28,21 @@ export default function StreamWatcher({
   };
 
   React.useEffect(() => {
-    if (!user || !user?.id || !user?.name || !token || isConnected) {
+    if (
+      !user ||
+      !user?.id ||
+      !user?.name ||
+      !token ||
+      !currentChannel ||
+      isConnected
+    ) {
       return;
     }
     setIsConnected(false);
     const authProvider = new StaticAuthProvider(user.id, token);
     const bot = new Bot({
       authProvider,
-      channels: [user.name!],
+      channels: [currentChannel],
     });
 
     bot.onMessage((msg) => {
@@ -42,35 +51,84 @@ export default function StreamWatcher({
     bot.onConnect(() => {
       setIsConnected(true);
     });
-  }, [user, isConnected, token]);
+  }, [user, isConnected, token, currentChannel]);
 
   return (
     <main>
-      <div className="indicator">
-        {isConnected ? (
-          <>
-            <span className="indicator-item badge badge-secondary">{}</span>
-            <p>Connected {user?.name ? `to ${user.name}'s live chat` : ""}</p>
-          </>
-        ) : (
-          <>
-            <span className="indicator-item badge badge-secondary">{}</span>
-            <p>Not Connected</p>
-          </>
-        )}
+      {isConnected ? (
+        <>
+          <span className="indicator-item badge badge-secondary">{}</span>
+          <p>
+            Connected {currentChannel ? `to ${currentChannel}'s live chat` : ""}
+          </p>
+        </>
+      ) : (
+        <>
+          <span className="indicator-item badge badge-secondary">{}</span>
+          <p>Not Connected</p>
+        </>
+      )}
+
+      <div className="drawer">
+        <input id="my-drawer" type="checkbox" className="drawer-toggle" />
+        <div className="drawer-content">
+          {/* Page content here */}
+          <label htmlFor="my-drawer" className="btn btn-primary drawer-button">
+            <span className="text-xl">
+              <CiSettings />{" "}
+            </span>
+            Manage Stream Settings
+          </label>
+        </div>
+        <div className="drawer-side">
+          <label
+            htmlFor="my-drawer"
+            aria-label="close sidebar"
+            className="drawer-overlay"
+          />
+          <ul className="menu p-4 w-80 min-h-full bg-base-200 text-base-content">
+            {/* Sidebar content here */}
+            <div className="form-control mt-8 p-8 mt-4 shadow border-b border-gray-200">
+              <div className="join join-vertical">
+                <label className="label">
+                  <span className="label-text">Comment Batch Size</span>
+                </label>
+                <label className="input-group input-group-vertical">
+                  <span>Size</span>
+                  <input
+                    id="batchSizeInput"
+                    value={batchSize}
+                    type="number"
+                    onChange={handleBatchSizeChange}
+                  />
+                </label>
+                <label className="label">
+                  <span className="label-text">Current Channel</span>
+                </label>
+                <label className="input-group input-group-vertical">
+                  <span>Channel</span>
+                  <input
+                    id="channelInput"
+                    value={currentChannel}
+                    type="text"
+                    onChange={(ev) => {
+                      setCurrentChannel(ev.target.value);
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+          </ul>
+        </div>
       </div>
 
-      <div className="grid h-20 card rounded-box">
-        <label className="input input-bordered flex items-center gap-2">
-          Comment Batch Size
-          <input
-            className="grow"
-            id="batchSizeInput"
-            value={batchSize}
-            type="number"
-            onChange={handleBatchSizeChange}
-          />
-        </label>
+      <div
+        className="radial-progress"
+        //@ts-ignore
+        style={{ "--value": Math.floor((msgs.length / batchSize) * 100) }}
+        role="progressbar"
+      >
+        {Math.floor((msgs.length / batchSize) * 100)}
       </div>
 
       <Table data={topicData} handleDelete={deleteEvent} />
