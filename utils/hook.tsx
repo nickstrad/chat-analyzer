@@ -1,63 +1,15 @@
 import React from "react";
-import { LLMResponse } from "./entities";
-import ShortUniqueId from "short-unique-id";
-const { randomUUID } = new ShortUniqueId({ length: 10 });
-
-const DEFAULT_TOPIC_DATA: LLMResponse[] = [
-  {
-    topic: "glorpers",
-    sentimentRating: 500,
-    description: "Discussion about real glorpers and their knowledge",
-  },
-  {
-    topic: "cronch",
-    sentimentRating: 300,
-    description: "Repetitive mentions of cronch",
-  },
-  {
-    topic: "plink",
-    sentimentRating: 400,
-    description: "Repetitive use of plink in the chat",
-  },
-  {
-    topic: "capy MewSpin",
-    sentimentRating: 400,
-    description: "	Repeated reference to capy MewSpin",
-  },
-  {
-    topic: "landing",
-    sentimentRating: 600,
-    description: "Excitement about finally landing",
-  },
-];
-
-const extendTopicData = (response: LLMResponse): LLMResponse => ({
-  ...response,
-  uid: randomUUID(),
-});
+import { Topic } from "./mongoDbHelpers";
 
 export const useLLMHelper = (
   batchSize: number
-): [
-  any[],
-  boolean,
-  LLMResponse[],
-  (msg: any) => void,
-  (uid: string) => void
-] => {
+): [any[], boolean, Topic[], (msg: any) => void, (uid: string) => void] => {
   const [isLoading, setLoading] = React.useState(false);
   const [msgs, setMsgs] = React.useState<any[]>([]);
-  const [topicData, setTopicData] = React.useState<LLMResponse[]>(
-    //   [
-    //   ...DEFAULT_TOPIC_DATA.map(extendTopicData),
-    //   ...DEFAULT_TOPIC_DATA.map(extendTopicData),
-    //   ...DEFAULT_TOPIC_DATA.map(extendTopicData),
-    // ]
-    []
-  );
+  const [topicData, setTopicData] = React.useState<Topic[]>([]);
 
   const handleLLMCall = React.useCallback(
-    async (comments: string): Promise<LLMResponse[]> => {
+    async (comments: string): Promise<Topic[]> => {
       setLoading(true);
       try {
         const resp = await fetch("/api/model-response", {
@@ -68,7 +20,7 @@ export const useLLMHelper = (
           body: JSON.stringify(comments),
         });
         const { data } = await resp.json();
-        return data.map(extendTopicData);
+        return data;
       } catch (err) {
         console.error(err);
       } finally {

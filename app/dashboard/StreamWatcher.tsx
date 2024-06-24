@@ -28,6 +28,21 @@ export default function StreamWatcher({
   };
 
   React.useEffect(() => {
+    if (!user?.name) {
+      return;
+    }
+    const getUserData = async () => {
+      try {
+        const data = await fetch(`/api/user?username=${user.name}`);
+        console.log(data);
+      } catch (err) {
+        console.log(err);
+      }
+    };
+    getUserData();
+  }, []);
+
+  React.useEffect(() => {
     if (
       !user ||
       !user?.id ||

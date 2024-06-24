@@ -1,105 +1,124 @@
 import mongoose from "mongoose";
 
-const TopicSchema = new mongoose.Schema({
-  name: String,
-  sentimentRating: Number,
-  summary: String,
+export type Tier = "free" | "tier1";
+
+export interface Topic {
+  shortSummary?: string;
+  sentimentRating?: number;
+  longSummary?: string;
+  favorite: boolean;
+  uid?: string;
+}
+
+export interface Livestream {
+  createdAt: Date;
+  name: string;
+  topics: Topic[];
+  questions: string[];
+  uid?: string;
+}
+
+export interface User {
+  username: string;
+  tier?: Tier;
+  liveStreams: Livestream[];
+}
+
+const UserSchema = new mongoose.Schema({
+  userName: { type: String, unique: true },
+  tier: { type: String, default: "free" },
+  liveStreams: [
+    {
+      createdAt: { type: Date, default: Date.now },
+      name: { type: String, unique: true },
+      topics: [
+        {
+          shortSummary: String,
+          sentimentRating: Number,
+          longDescription: String,
+        },
+      ],
+    },
+  ],
 });
 
-const StreamerSchema = new mongoose.Schema({
-  name: String,
-  liveStreams: {
-    type: Map,
-    of: [TopicSchema],
-  },
-});
-
-const StreamerModel = mongoose.model("Streamer", StreamerSchema);
+const UserModel = mongoose.model("User", UserSchema);
 
 export let mongooseConnection: typeof mongoose | undefined;
 
 const connect = async () => {
   if (!mongooseConnection) {
-    mongooseConnection = await mongoose.connect(
-      process.env.MONGO_DB_CONNECTION_URI!
-    );
+    mongooseConnection = await mongoose.connect(process.env.MONGODB_ENDPOINT!);
   }
 };
 
-export const createUser = async (name: string) => {
+export const createUser = async ({
+  username,
+  ...update
+}: Partial<User>): Promise<{ user?: User; error?: string }> => {
   if (!mongooseConnection) {
     await connect();
   }
-  let streamer = await StreamerModel.findOne({ name });
-
-  if (streamer) {
-    throw `${name} already exists`;
+  if (!username) {
+    return { error: "'username' must be set on new User" };
   }
-  streamer = new StreamerModel({ name });
-  await streamer.save();
-  return streamer;
+
+  let user = await UserModel.findOneAndUpdate(
+    { username },
+    { update },
+    {
+      new: true,
+      upsert: true,
+    }
+  );
+
+  return { user: user.toJSON() };
 };
 
-export const getUser = async (name: string) => {
+export const updateUser = async (
+  updatedValues: Pick<User, "username"> & Partial<User>
+): Promise<{ user?: User; error?: string }> => {
   if (!mongooseConnection) {
     await connect();
   }
-  return await StreamerModel.findOne({ name });
+  if (!updatedValues?.username) {
+    return { error: "'username' must be set" };
+  }
+
+  if (Object.keys(updatedValues).length <= 1) {
+    return {
+      error: `No properties passed in to update for user '${updatedValues.username}'`,
+    };
+  }
+
+  const { username, ...update } = updatedValues;
+  let user = await UserModel.findOneAndUpdate({ username }, update, {
+    new: true,
+  });
+
+  if (!user) {
+    return { error: `User '${updatedValues.username}' does not exist` };
+  }
+
+  return { user: user.toJSON() };
 };
 
-export const updateLiveStream = async ({
-  name,
-  url,
-  topics,
-}: {
-  name: string;
-  url: string;
-  topics?: { name: string; sentimentRating: number; summary: string }[];
-}) => {
-  if (!mongooseConnection) {
-    await connect();
-  }
-
-  let streamer = await StreamerModel.findOne({ name });
-
-  if (!streamer) {
-    throw `${name} does not exist`;
-  }
-
-  if (!streamer.liveStreams) {
-    streamer.liveStreams = new Map();
-  }
-
-  if (!streamer.liveStreams.has(url)) {
-    streamer.liveStreams.set(url, [] as any);
-  }
-  const existingTopics = streamer.liveStreams.get(url)!;
-  topics?.forEach((t) => existingTopics?.push(t));
-  streamer.liveStreams.set(url, existingTopics);
-  await streamer.save();
-  return streamer;
-};
-
-export const getLiveStreamTopics = async ({
-  name,
-  url,
-}: {
-  name: string;
-  url: string;
-}) => {
+export const getUser = async (
+  username: string
+): Promise<{ user?: User; error?: string }> => {
   if (!mongooseConnection) {
     await connect();
   }
 
-  let streamer = await StreamerModel.findOne({ name });
-
-  if (!streamer) {
-    throw `${name} does not exist`;
+  if (!username) {
+    return { error: `'username' is empty` };
   }
 
-  if (streamer?.liveStreams?.has(url)) {
-    return streamer.liveStreams.get(url);
+  const user = await UserModel.findOne({ username });
+
+  if (!user) {
+    return { error: `User '${username}' does not exist` };
   }
 
-  return [];
+  return { user: user.toJSON() };
 };

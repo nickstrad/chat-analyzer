@@ -2,12 +2,19 @@ import { AzureChatOpenAI } from "@langchain/openai";
 import { StructuredOutputParser } from "langchain/output_parsers";
 import { ChatPromptTemplate, PromptTemplate } from "@langchain/core/prompts";
 import { RunnableSequence } from "@langchain/core/runnables";
-import { LLMResponse } from "./entities";
 import { z } from "zod";
+import ShortUniqueId from "short-unique-id";
+import { Topic } from "./mongoDbHelpers";
 
-export async function runLiveStreamPrompt(
-  data: string
-): Promise<LLMResponse[]> {
+const { randomUUID } = new ShortUniqueId({ length: 10 });
+
+const extendTopicData = (response: Topic): Topic => ({
+  ...response,
+  favorite: false,
+  uid: randomUUID(),
+});
+
+export async function runLiveStreamPrompt(data: string): Promise<Topic[]> {
   if (!process.env.NEXT_LLM_API_BASE_PATH) {
     throw "env variable NEXT_OPENAI_API_BASE_PATH needs to be set";
   }
@@ -22,8 +29,8 @@ export async function runLiveStreamPrompt(
   const outputParser = StructuredOutputParser.fromZodSchema(
     z.array(
       z.object({
-        topic: z.string().describe("A 1 to 5 word summary of topic"),
-        description: z.string().describe("A 7 to 20 word summary of topic"),
+        shortSummary: z.string().describe("A 1 to 5 word summary of topic"),
+        longDescription: z.string().describe("A 7 to 20 word summary of topic"),
         sentimentRating: z
           .number()
           .describe(
@@ -62,10 +69,10 @@ export async function runLiveStreamPrompt(
   ]);
 
   const chain = RunnableSequence.from([chatPrompt, model, outputParser]);
-  const llmResponses = await chain.invoke({
+  const topics = await chain.invoke({
     format_instructions: outputParser.getFormatInstructions(),
     chat_comments: data,
   });
 
-  return llmResponses;
+  return topics.map(extendTopicData);
 }
