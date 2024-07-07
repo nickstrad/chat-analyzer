@@ -1,11 +1,10 @@
 import { getServerSession } from "next-auth/next";
 import {
-  User,
+  SaveQuestionsParams,
   connectDB,
-  createUser,
-  deleteUser,
-  getUser,
-  updateUser,
+  getAllSavedQuestions,
+  getSavedQuestionsForKey,
+  saveQuestions,
 } from "@/utils";
 import { authOptions } from "../auth/[...nextauth]/route";
 
@@ -19,10 +18,10 @@ export async function GET(request: Request) {
       return Response.json({ error: "Not signed in" }, { status: 401 });
     }
   }
+
   const { searchParams } = new URL(request.url);
   const username = searchParams.get("username");
   if (!username) {
-    Response;
     return Response.json(
       { error: "'username' cannot be empty" },
       {
@@ -31,39 +30,16 @@ export async function GET(request: Request) {
     );
   }
 
+  const savedQuestionsMapKey = searchParams.get("savedQuestionsMapKey");
+
   try {
     await connectDB();
-    return Response.json(await getUser(username));
-  } catch (err) {
-    console.error(err);
-    return Response.json({ error: "Serrver error." }, { status: 500 });
-  }
-}
-
-export async function POST(request: Request) {
-  if (CHECK_API_SESSION) {
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return Response.json({ error: "Not signed in" }, { status: 401 });
+    if (savedQuestionsMapKey) {
+      return Response.json(
+        await getSavedQuestionsForKey({ username, savedQuestionsMapKey })
+      );
     }
-  }
-
-  const user: User = await request.json();
-
-  if (!user.username) {
-    Response;
-    return Response.json(
-      { error: "'username' cannot be empty" },
-      {
-        status: 400,
-      }
-    );
-  }
-
-  try {
-    await connectDB();
-    return Response.json(await createUser(user));
+    return Response.json(await getAllSavedQuestions(username));
   } catch (err) {
     console.error(err);
     return Response.json({ error: "Serrver error." }, { status: 500 });
@@ -79,9 +55,13 @@ export async function PATCH(request: Request) {
     }
   }
 
-  const user: User = await request.json();
+  const {
+    username = "",
+    savedQuestionsMapKey = "",
+    questions = [],
+  }: SaveQuestionsParams = await request.json();
 
-  if (!user.username) {
+  if (!username) {
     Response;
     return Response.json(
       { error: "'username' cannot be empty" },
@@ -91,30 +71,19 @@ export async function PATCH(request: Request) {
     );
   }
 
-  try {
-    await connectDB();
-    return Response.json(await updateUser(user));
-  } catch (err) {
-    console.error(err);
-    return Response.json({ error: "Serrver error." }, { status: 500 });
-  }
-}
-
-export async function DELETE(request: Request) {
-  if (CHECK_API_SESSION) {
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return Response.json({ error: "Not signed in" }, { status: 401 });
-    }
-  }
-
-  const user: User = await request.json();
-
-  if (!user.username) {
+  if (!savedQuestionsMapKey) {
     Response;
     return Response.json(
-      { error: "'username' cannot be empty" },
+      { error: "'savedQuestionsMapKey' cannot be empty" },
+      {
+        status: 400,
+      }
+    );
+  }
+  if (!questions.length) {
+    Response;
+    return Response.json(
+      { error: "'questions' cannot be empty" },
       {
         status: 400,
       }
@@ -123,7 +92,14 @@ export async function DELETE(request: Request) {
 
   try {
     await connectDB();
-    return Response.json(await deleteUser(user.username));
+
+    return Response.json(
+      await saveQuestions({
+        username,
+        questions,
+        savedQuestionsMapKey,
+      })
+    );
   } catch (err) {
     console.error(err);
     return Response.json({ error: "Serrver error." }, { status: 500 });

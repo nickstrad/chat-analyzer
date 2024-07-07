@@ -107,7 +107,7 @@ function PageButton({ children, className, ...rest }: any) {
 export const COLUMNS = [
   {
     Header: "Topic",
-    accessor: "topic",
+    accessor: "shortSummary",
   },
   {
     Header: "Sentiment Rating",
@@ -118,7 +118,7 @@ export const COLUMNS = [
   },
   {
     Header: "Description",
-    accessor: "description",
+    accessor: "longSummary",
   },
   {
     Header: "Action",

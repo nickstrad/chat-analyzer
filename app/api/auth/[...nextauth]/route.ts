@@ -1,6 +1,5 @@
 import NextAuth from "next-auth";
 import type { NextAuthOptions } from "next-auth";
-import { AuthorizationEndpointHandler } from "next-auth/providers/oauth";
 import TwitchProvider from "next-auth/providers/twitch";
 
 const provider = TwitchProvider({

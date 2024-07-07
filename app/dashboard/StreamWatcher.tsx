@@ -2,21 +2,46 @@
 import React, { ChangeEventHandler } from "react";
 import { StaticAuthProvider } from "@twurple/auth";
 import { Bot } from "@twurple/easy-bot";
-import { User } from "next-auth";
+import { User } from "@/utils";
+import { User as NextUser } from "next-auth";
 import { Table } from "@/components/Table";
-import { useLLMHelper } from "@/utils/hook";
+import { useLLMHelper } from "@/utils";
 import { CiSettings } from "react-icons/ci";
+
+const createUserIfNew = async ({
+  username = "",
+  email = "",
+}: {
+  username?: string | null;
+  email?: string | null;
+}): Promise<User> => {
+  if (!username) {
+    console.error("Session doesn't have 'name'");
+    //TODO: surface this error
+  }
+  const resp = await fetch(`/api/user`, {
+    method: "POST",
+    body: JSON.stringify({ username, email }),
+  });
+
+  const { data } = await resp.json();
+  return data;
+};
 
 export default function StreamWatcher({
   user,
   token,
 }: {
-  user?: User;
+  user?: NextUser;
   token?: string;
 }) {
+  const [username, setUsername] = React.useState<string>("");
+  const [userId, setUserId] = React.useState<string>("");
   const [batchSize, setBatchSize] = React.useState(100);
   const [isConnected, setIsConnected] = React.useState(false);
-  const [currentChannel, setCurrentChannel] = React.useState(user?.name || "");
+  const [currentChannel, setCurrentChannel] = React.useState(
+    process.env.NEXT_PUBLIC_DEFAULT_CHANNEL || user?.name
+  );
   const [msgs, isLoading, topicData, appendMessageEvent, deleteEvent] =
     useLLMHelper(batchSize);
   const handleBatchSizeChange: ChangeEventHandler<HTMLInputElement> = (ev) => {
@@ -28,33 +53,26 @@ export default function StreamWatcher({
   };
 
   React.useEffect(() => {
-    if (!user?.name) {
-      return;
-    }
-    const getUserData = async () => {
-      try {
-        const data = await fetch(`/api/user?username=${user.name}`);
-        console.log(data);
-      } catch (err) {
-        console.log(err);
+    const run = async () => {
+      const userInfo = await createUserIfNew({
+        username: user?.name,
+        email: user?.email,
+      });
+
+      if (userInfo && user?.id) {
+        setUsername(userInfo.username);
+        setUserId(user.id);
       }
     };
-    getUserData();
+    run();
   }, []);
 
   React.useEffect(() => {
-    if (
-      !user ||
-      !user?.id ||
-      !user?.name ||
-      !token ||
-      !currentChannel ||
-      isConnected
-    ) {
+    if (!userId || !username || !token || !currentChannel || isConnected) {
       return;
     }
     setIsConnected(false);
-    const authProvider = new StaticAuthProvider(user.id, token);
+    const authProvider = new StaticAuthProvider(userId, token);
     const bot = new Bot({
       authProvider,
       channels: [currentChannel],
@@ -66,7 +84,7 @@ export default function StreamWatcher({
     bot.onConnect(() => {
       setIsConnected(true);
     });
-  }, [user, isConnected, token, currentChannel]);
+  }, [username, userId, isConnected, token, currentChannel]);
 
   return (
     <main>
@@ -124,7 +142,7 @@ export default function StreamWatcher({
                   <span>Channel</span>
                   <input
                     id="channelInput"
-                    value={currentChannel}
+                    value={currentChannel || ""}
                     type="text"
                     onChange={(ev) => {
                       setCurrentChannel(ev.target.value);

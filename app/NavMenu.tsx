@@ -1,9 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { SignInButton, SignOutButton } from "@/components/buttons";
-import AuthCheck from "@/components/AuthCheck";
 import { getServerSession } from "next-auth";
 import { authOptions } from "./api/auth/[...nextauth]/route";
+import AuthCheck from "@/components/AuthCheck";
 
 export default async function NavMenu() {
   const session: any = await getServerSession(authOptions);

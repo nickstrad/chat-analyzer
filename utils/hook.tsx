@@ -1,5 +1,5 @@
 import React from "react";
-import { Topic } from "./mongoDbHelpers";
+import { Topic } from "@/utils";
 
 export const useLLMHelper = (
   batchSize: number

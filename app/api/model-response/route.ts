@@ -1,4 +1,4 @@
-import { runLiveStreamPrompt } from "@/utils/promptHelper";
+import { runLiveStreamPrompt } from "@/utils";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
 
@@ -20,6 +20,6 @@ export async function POST(req: Request) {
     return Response.json({ data });
   } catch (err) {
     console.error(err);
-    return Response.json({ data: [] });
+    return Response.json({ error: err }, { status: 500 });
   }
 }

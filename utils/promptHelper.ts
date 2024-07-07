@@ -2,15 +2,13 @@ import { AzureChatOpenAI } from "@langchain/openai";
 import { StructuredOutputParser } from "langchain/output_parsers";
 import { ChatPromptTemplate, PromptTemplate } from "@langchain/core/prompts";
 import { RunnableSequence } from "@langchain/core/runnables";
-import { z } from "zod";
 import ShortUniqueId from "short-unique-id";
-import { Topic } from "./mongoDbHelpers";
+import { Topic, LLM_TOPICS_ARRAY_ZOD_SCHEMA } from "@/utils";
 
 const { randomUUID } = new ShortUniqueId({ length: 10 });
 
-const extendTopicData = (response: Topic): Topic => ({
+const extendLLMTopicData = (response: Topic): Topic => ({
   ...response,
-  favorite: false,
   uid: randomUUID(),
 });
 
@@ -27,17 +25,7 @@ export async function runLiveStreamPrompt(data: string): Promise<Topic[]> {
   });
 
   const outputParser = StructuredOutputParser.fromZodSchema(
-    z.array(
-      z.object({
-        shortSummary: z.string().describe("A 1 to 5 word summary of topic"),
-        longDescription: z.string().describe("A 7 to 20 word summary of topic"),
-        sentimentRating: z
-          .number()
-          .describe(
-            "A number indicating the positive sentiment rating of the topic between 0 to 1000"
-          ),
-      })
-    )
+    LLM_TOPICS_ARRAY_ZOD_SCHEMA
   );
 
   const chatPrompt = ChatPromptTemplate.fromMessages([
@@ -74,5 +62,5 @@ export async function runLiveStreamPrompt(data: string): Promise<Topic[]> {
     chat_comments: data,
   });
 
-  return topics.map(extendTopicData);
+  return (topics as Topic[]).map(extendLLMTopicData);
 }
