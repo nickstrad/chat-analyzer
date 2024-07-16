@@ -1,28 +1,34 @@
-import { AzureChatOpenAI } from "@langchain/openai";
+import { OpenAI } from "@langchain/openai";
+import { ChatAnthropic } from "@langchain/anthropic";
 import { StructuredOutputParser } from "langchain/output_parsers";
 import { ChatPromptTemplate, PromptTemplate } from "@langchain/core/prompts";
 import { RunnableSequence } from "@langchain/core/runnables";
-import ShortUniqueId from "short-unique-id";
 import { Topic, LLM_TOPICS_ARRAY_ZOD_SCHEMA } from "@/utils";
 
-const { randomUUID } = new ShortUniqueId({ length: 10 });
-
-const extendLLMTopicData = (response: Topic): Topic => ({
-  ...response,
-  uid: randomUUID(),
-});
-
 export async function runLiveStreamPrompt(data: string): Promise<Topic[]> {
-  if (!process.env.NEXT_LLM_API_BASE_PATH) {
-    throw "env variable NEXT_OPENAI_API_BASE_PATH needs to be set";
-  }
+  // if (!process.env.NEXT_LLM_API_KEY) {
+  //   throw "env variable NEXT_LLM_API_KEY needs to be set";
+  // }
 
-  const model = new AzureChatOpenAI({
-    apiKey: process.env.NEXT_LLM_API_KEY,
-    temperature: 0,
-    model: process.env.NEXT_LLM_MODEL_NAME,
-    openAIBasePath: process.env.NEXT_LLM_API_BASE_PATH,
-  });
+  // const model = new OpenAI(
+  //   {
+  //     openAIApiKey: process.env.NEXT_LLM_API_KEY ?? "not-needed",
+  //     temperature: 0,
+  //     model: process.env.NEXT_LLM_MODEL_NAME,
+  //     streaming: false,
+  //   },
+  //   { baseURL: process.env.NEXT_LLM_API_BASE_PATH }
+  // );
+
+  const model = new ChatAnthropic(
+    {
+      apiKey: process.env.NEXT_LLM_API_KEY ?? "not-needed",
+      temperature: 0,
+      model: process.env.NEXT_LLM_MODEL_NAME,
+      streaming: false,
+    }
+    // { baseURL: process.env.NEXT_LLM_API_BASE_PATH }
+  );
 
   const outputParser = StructuredOutputParser.fromZodSchema(
     LLM_TOPICS_ARRAY_ZOD_SCHEMA
@@ -62,5 +68,6 @@ export async function runLiveStreamPrompt(data: string): Promise<Topic[]> {
     chat_comments: data,
   });
 
-  return (topics as Topic[]).map(extendLLMTopicData);
+  //@ts-ignore
+  return topics as Topic[];
 }

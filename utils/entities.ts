@@ -10,17 +10,35 @@ import { z } from "zod";
 /********************
  * TypeScript Types
  ********************/
+export type View = "TOPICS" | "QUESTIONS" | "QUEUE";
 export type Tier = "free" | "premium1";
 
 export interface Topic {
   shortSummary: String;
   sentimentRating: Number;
   longSummary: string;
-  uid?: string;
+  _id?: string;
 }
 
-export type TopicListstMap = Map<string, Topic[]>;
-export type SavedQuestionsMap = Map<string, Topic[]>;
+export interface Question {
+  user: string;
+  question: string;
+}
+
+export interface Queue {
+  topics: Topic[];
+  questions: Question[];
+}
+
+export type TopicsMap = Map<string, Topic[]>;
+export type QuestionsMap = Map<string, Topic[]>;
+
+const QUESTION_KEYS: {
+  [key: string]: keyof Question;
+} = {
+  USER: "user",
+  QUESTION: "question",
+};
 
 const TOPIC_KEYS: {
   [key: string]: keyof Topic;
@@ -28,15 +46,22 @@ const TOPIC_KEYS: {
   SHORT_SUMMARY: "shortSummary",
   SENTIMENT_RATING: "sentimentRating",
   LONG_SUMMARY: "longSummary",
-  UID: "uid",
+};
+
+const QUEUE_KEYS: {
+  [key: string]: keyof Queue;
+} = {
+  TOPICS: "topics",
+  QUESTIONS: "questions",
 };
 
 export interface User {
   username: string;
   email: string;
   tier: Tier;
-  topicListsMap: TopicListstMap;
-  savedQuestionsMap: SavedQuestionsMap;
+  topicsMap: TopicsMap;
+  questionsMap: QuestionsMap;
+  queue: Queue;
 }
 
 const USER_KEYS: {
@@ -45,8 +70,9 @@ const USER_KEYS: {
   USERNAME: "username",
   EMAIL: "email",
   TIER: "tier",
-  TOPIC_LISTS_MAP: "topicListsMap",
-  SAVED_QUESTIONS: "savedQuestionsMap",
+  TOPICS_MAP: "topicsMap",
+  QUESTIONS_MAP: "questionsMap",
+  QUEUE: "queue",
 };
 
 /**************
@@ -73,27 +99,61 @@ export const LLM_TOPICS_ARRAY_ZOD_SCHEMA = z.array(
 /*******************
  * mongoose schemas
  *******************/
+const TOPICS_SCHEMA_OBJECT = {
+  [TOPIC_KEYS.SHORT_SUMMARY]: String,
+  [TOPIC_KEYS.SENTIMENT_RATING]: Number,
+  [TOPIC_KEYS.LONG_SUMMARY]: String,
+  [TOPIC_KEYS.UID]: String,
+};
+
+const QUESTIONS_SCHEMA_OBJECT = {
+  [QUESTION_KEYS.USER]: String,
+  [QUESTION_KEYS.QUESTION]: String,
+};
+
+const QUEUE_SCHEMA_OBJECT = {
+  [QUEUE_KEYS.QUESTIONS]: {
+    of: [QUESTIONS_SCHEMA_OBJECT],
+    default: [] as Question[],
+  },
+  [QUEUE_KEYS.TOPICS]: {
+    of: [TOPICS_SCHEMA_OBJECT],
+    default: [] as Topic[],
+  },
+};
+
 export const UserSchema = new mongoose.Schema<User>(
   {
     [USER_KEYS.USERNAME]: { type: String, unique: true },
     [USER_KEYS.EMAIL]: { type: String, default: "" },
     [USER_KEYS.TIER]: { type: String, default: "free" as Tier },
-    [USER_KEYS.TOPIC_LISTS_MAP]: {
+    [USER_KEYS.TOPICS_MAP]: {
       type: Map,
-      default: new Map() as TopicListstMap,
-      of: [
-        {
-          [TOPIC_KEYS.SHORT_SUMMARY]: String,
-          [TOPIC_KEYS.SENTIMENT_RATING]: Number,
-          [TOPIC_KEYS.LONG_SUMMARY]: String,
-          [TOPIC_KEYS.UID]: String,
-        },
-      ],
+      default: new Map() as TopicsMap,
+      of: [TOPICS_SCHEMA_OBJECT],
     },
-    [USER_KEYS.SAVED_QUESTIONS]: {
+    [USER_KEYS.QUESTIONS_MAP]: {
       type: Map,
-      default: new Map() as SavedQuestionsMap,
-      of: [String],
+      default: new Map() as QuestionsMap,
+      of: [QUESTIONS_SCHEMA_OBJECT],
+    },
+    // [USER_KEYS.QUEUE]: {
+    //   type: Object,
+    //   default: { topics: [], questions: [] } as Queue,
+    //   of: {
+    //     of: QUEUE_SCHEMA_OBJECT,
+    //     default: { topics: [] as Topic[], questions: [] as Question[] },
+    //   },
+    // },
+    [USER_KEYS.QUEUE]: {
+      type: Object,
+      default: { topics: [], questions: [] } as Queue,
+      of: {
+        of: {
+          topics: [TOPICS_SCHEMA_OBJECT],
+          questions: [QUESTIONS_SCHEMA_OBJECT],
+        },
+      },
     },
   },
   {
@@ -113,19 +173,45 @@ export const UserModel =
 export interface AddTopicParams {
   username: string;
   topics: Topic[];
-  topicListMapKey: string;
+  topicsKey: string;
+}
+
+export interface DeleteTopicParams {
+  username: string;
+  topicIds: string[];
+  topicsKey: string;
 }
 
 export interface SaveQuestionsParams {
   username: string;
-  savedQuestionsMapKey: string;
+  questionsKey: string;
   questions: string[];
 }
-
-export interface APIRouteResponse {
-  data?: User | Map<string, Topic[]> | string[] | boolean;
-  error?: string;
+export interface DeleteQuestionParams {
+  username: string;
+  questionIds: string[];
+  questionsKey: string;
 }
+
+export interface EnqueueItemsParams {
+  username: string;
+  topics?: Topic[];
+  questions?: Question[];
+}
+
+export interface DequeueItemsParams {
+  username: string;
+  questionIds: string[];
+  topicIds: string[];
+}
+
+export type APIRouteResponse =
+  | User
+  | Map<string, Topic[]>
+  | string[]
+  | boolean
+  | Queue
+  | { error: string };
 
 /*********
  * Random

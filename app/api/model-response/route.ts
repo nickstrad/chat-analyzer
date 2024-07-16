@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   try {
     const comments = await req.json();
     const data = await runLiveStreamPrompt(comments);
-    return Response.json({ data });
+    return Response.json(data);
   } catch (err) {
     console.error(err);
     return Response.json({ error: err }, { status: 500 });

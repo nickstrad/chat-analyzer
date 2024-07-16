@@ -11,9 +11,17 @@ export default async function Dashboard() {
     redirect("/api/auth/signin");
   }
 
+  if (!session.user) {
+    console.error("There is no user in the session");
+  }
+
+  if (!session.accessToken) {
+    console.error("Unable to get necessary access token");
+  }
+
   return (
     <>
-      <StreamWatcher user={session.user} token={session.accessToken || ""} />
+      <StreamWatcher user={session.user} token={session.accessToken} />
     </>
   );
 }

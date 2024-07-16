@@ -1,14 +1,13 @@
 import { getServerSession } from "next-auth/next";
-import {
-  DeleteQuestionParams,
-  SaveQuestionsParams,
-  connectDB,
-  deleteQuestions,
-  getAllSavedQuestions,
-  getSavedQuestionsForKey,
-  saveQuestions,
-} from "@/utils";
 import { authOptions } from "../auth/[...nextauth]/route";
+import {
+  connectDB,
+  dequeueItems,
+  DequeueItemsParams,
+  enqueueItems,
+  EnqueueItemsParams,
+  getQueue,
+} from "@/utils";
 
 const CHECK_API_SESSION = /true/i.test(process.env.API_TESTING ?? "");
 
@@ -32,16 +31,9 @@ export async function GET(request: Request) {
     );
   }
 
-  const questionsKey = searchParams.get("questionsKey");
-
   try {
     await connectDB();
-    if (questionsKey) {
-      return Response.json(
-        await getSavedQuestionsForKey({ username, questionsKey })
-      );
-    }
-    return Response.json(await getAllSavedQuestions(username));
+    return Response.json(await getQueue(username));
   } catch (err) {
     console.error(err);
     return Response.json({ error: "Serrver error." }, { status: 500 });
@@ -59,12 +51,11 @@ export async function PATCH(request: Request) {
 
   const {
     username = "",
-    questionsKey = "",
+    topics = [],
     questions = [],
-  }: SaveQuestionsParams = await request.json();
+  }: EnqueueItemsParams = await request.json();
 
   if (!username) {
-    Response;
     return Response.json(
       { error: "'username' cannot be empty" },
       {
@@ -73,33 +64,13 @@ export async function PATCH(request: Request) {
     );
   }
 
-  if (!questionsKey) {
-    Response;
-    return Response.json(
-      { error: "'questionsKey' cannot be empty" },
-      {
-        status: 400,
-      }
-    );
-  }
-  if (!questions.length) {
-    Response;
-    return Response.json(
-      { error: "'questions' cannot be empty" },
-      {
-        status: 400,
-      }
-    );
-  }
-
   try {
     await connectDB();
-
     return Response.json(
-      await saveQuestions({
+      await enqueueItems({
         username,
+        topics,
         questions,
-        questionsKey,
       })
     );
   } catch (err) {
@@ -120,8 +91,8 @@ export async function DELETE(request: Request) {
   const {
     username = "",
     questionIds = [],
-    questionsKey = "",
-  }: DeleteQuestionParams = await request.json();
+    topicIds = [],
+  }: DequeueItemsParams = await request.json();
 
   if (!username) {
     return Response.json(
@@ -132,19 +103,9 @@ export async function DELETE(request: Request) {
     );
   }
 
-  if (!questionIds.length) {
+  if (!questionIds.length && !topicIds.length) {
     return Response.json(
-      { error: "'questionIds' cannot be empty" },
-      {
-        status: 400,
-      }
-    );
-  }
-
-  if (!questionsKey) {
-    Response;
-    return Response.json(
-      { error: "'questionsKey' cannot be empty" },
+      { error: "'itemIds' and `questionIds` cannot both be empty" },
       {
         status: 400,
       }
@@ -154,10 +115,10 @@ export async function DELETE(request: Request) {
   try {
     await connectDB();
     return Response.json(
-      await deleteQuestions({
+      await dequeueItems({
         username,
         questionIds,
-        questionsKey,
+        topicIds,
       })
     );
   } catch (err) {

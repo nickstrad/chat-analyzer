@@ -1,3 +1,4 @@
+"use client";
 import React from "react";
 import {
   useTable,
@@ -14,9 +15,20 @@ import {
   ChevronDoubleRightIcon,
   //@ts-ignore
 } from "@heroicons/react/solid";
-import { MdOutlineDeleteOutline } from "react-icons/md";
+import { MdOutlineDeleteOutline, MdQueue } from "react-icons/md";
 
-export function classNames(...classes: string[]) {
+import {
+  DequeueItemsParams,
+  EnqueueItemsParams,
+  Question,
+  Topic,
+  View,
+} from "@/utils";
+
+/**
+ * Helpers
+ */
+function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
 }
 
@@ -104,7 +116,75 @@ function PageButton({ children, className, ...rest }: any) {
   );
 }
 
-export const COLUMNS = [
+function GlobalFilter({
+  preGlobalFilteredRows,
+  globalFilter,
+  setGlobalFilter,
+}: any) {
+  const count = preGlobalFilteredRows.length;
+  const [value, setValue] = React.useState(globalFilter);
+  const onChange = useAsyncDebounce((value) => {
+    setGlobalFilter(value || undefined);
+  }, 200);
+
+  return (
+    <label className="flex gap-x-2 items-baseline">
+      <span className="text-gray-700">Search: </span>
+      <input
+        type="text"
+        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+        value={value || ""}
+        onChange={(e) => {
+          setValue(e.target.value);
+          onChange(e.target.value);
+        }}
+        placeholder={`${count} records...`}
+      />
+    </label>
+  );
+}
+
+export function SelectColumnFilter({
+  column: { filterValue, setFilter, preFilteredRows, id, render },
+}: any) {
+  const options = React.useMemo(() => {
+    const options = new Set();
+    preFilteredRows.forEach((row: any) => {
+      options.add(row.values[id]);
+    });
+    //@ts-ignore
+    return [...options.values()];
+  }, [id, preFilteredRows]);
+
+  return (
+    <label className="flex gap-x-2 items-baseline">
+      <span className="text-gray-700">{render("Header")}: </span>
+      <select
+        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+        name={id}
+        id={id}
+        value={filterValue}
+        onChange={(e) => {
+          setFilter(e.target.value || undefined);
+        }}
+      >
+        <option value="">All</option>
+        {options.map((option, i) => (
+          //@ts-ignore
+          <option key={i} value={option}>
+            {/*@ts-ignore*/}
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/**
+ * Topics Table
+ */
+export const TOPICS_TABLE_COLUMNS = [
   {
     Header: "Topic",
     accessor: "shortSummary",
@@ -121,8 +201,27 @@ export const COLUMNS = [
     accessor: "longSummary",
   },
   {
-    Header: "Action",
-    accessor: "uid",
+    Header: "Actions",
+    accessor: "_id",
+    Cell: ActionCell,
+  },
+];
+
+export const QUESTIONS_TABLE_COLUMNS = [
+  {
+    Header: "Question",
+    accessor: "question",
+  },
+  {
+    Header: "User",
+    accessor: "user",
+    Filter: SelectColumnFilter,
+    filter: "includes",
+    Cell: SentimentPill,
+  },
+  {
+    Header: "Actions",
+    accessor: "_id",
     Cell: ActionCell,
   },
 ];
@@ -142,18 +241,26 @@ export function SentimentPill({ value }: { value: number }) {
   );
 }
 
-export function ActionCell(props: {
-  value: string;
-  handleDelete: (uid: string) => void;
+export function ActionCell({
+  handleDelete,
+  queueItem,
+  view,
+  key,
+}: {
+  key: string;
+  view: View;
+  handleDelete: () => Promise<void>;
+  queueItem: () => Promise<void>;
 }) {
-  const { value, handleDelete } = props;
-  const modalId = `modal-${value}`;
+  const modalId = `modal-${key}-1`;
+  const modalId2 = `modal-${key}-2`;
   return (
     <div>
       <dialog id={modalId} className="modal">
         <div className="modal-box">
           <h3 className="font-bold text-lg">
-            Are you sure you want to delete this topic?
+            Are you sure you want to delete this{" "}
+            {view === "TOPICS" ? "tpic" : "question"}?
           </h3>
           <p className="py-4">
             Press ESC key or click the button below to close
@@ -163,10 +270,39 @@ export function ActionCell(props: {
               {/* if there is a button in form, it will close the modal */}
               <button
                 className="btn btn-active btn-error"
-                onClick={() => handleDelete(value)}
+                onClick={async () => {
+                  await handleDelete();
+                }}
               >
                 Delete
               </button>
+
+              <button className="btn btn-active btn-neutral">Cancel</button>
+            </form>
+          </div>
+        </div>
+      </dialog>
+      <dialog id={modalId2} className="modal">
+        <div className="modal-box">
+          <h3 className="font-bold text-lg">
+            Are you sure you want to add this{" "}
+            {view === "TOPICS" ? "tpic" : "question"} to list of queued items?
+          </h3>
+          <p className="py-4">
+            Press ESC key or click the button below to close
+          </p>
+          <div className="modal-action">
+            <form method="dialog">
+              {/* if there is a button in form, it will close the modal */}
+              <button
+                className="btn btn-active btn-error"
+                onClick={async () => {
+                  await queueItem();
+                }}
+              >
+                Add to Queued {view === "TOPICS" ? "Topics" : "Questions"}
+              </button>
+
               <button className="btn btn-active btn-neutral">Cancel</button>
             </form>
           </div>
@@ -177,18 +313,35 @@ export function ActionCell(props: {
         //@ts-ignore
         onClick={() => document.getElementById(modalId).showModal()}
       />
+      <MdQueue
+        className="text-red-600"
+        //@ts-ignore
+        onClick={() => document.getElementById(modalId2).showModal()}
+      />
     </div>
   );
 }
 
-export const Table = ({
+/*********
+ * Table
+ *********/
+interface TableProps {
+  data: Topic[] | Question[];
+  handleDelete: (id: string) => Promise<void>;
+  handleEnqueueItem: (
+    params: Pick<EnqueueItemsParams, "questions" | "topics">
+  ) => Promise<void>;
+  columns: typeof TOPICS_TABLE_COLUMNS | typeof QUESTIONS_TABLE_COLUMNS;
+  view: View;
+}
+
+const Table = ({
   data,
   handleDelete,
-}: {
-  data: any[];
-  handleDelete: (uid: string) => void;
-}): JSX.Element => {
-  const columns = React.useMemo(() => COLUMNS, []);
+  handleEnqueueItem,
+  columns,
+  view,
+}: TableProps): JSX.Element => {
   const {
     getTableProps,
     getTableBodyProps,
@@ -222,6 +375,24 @@ export const Table = ({
     previousPage,
     setPageSize,
   } = rest as any;
+
+  const getQueueItemHelper = React.useCallback(
+    (item: Topic | Question) => async (): Promise<void> => {
+      if (view === "TOPICS") {
+        await handleEnqueueItem({
+          topics: [item as Topic],
+          questions: [],
+        });
+      } else if (view === "QUESTIONS") {
+        await handleEnqueueItem({
+          questions: [item as Question],
+          topics: [],
+        });
+      }
+    },
+    [handleEnqueueItem, view]
+  );
+
   return (
     <div className="mt-8 p-8 mt-4 shadow border-b border-gray-200">
       <div className="flex gap-x-2">
@@ -289,10 +460,6 @@ export const Table = ({
                       {/*@ts-ignore*/}
                       {row.cells.map((cell, idx) => {
                         const { key, ...rest } = cell.getCellProps();
-                        if (cell.column.Header === "Action") {
-                          // console.log(cell);
-                          // console.log(cell.value);
-                        }
                         return (
                           <td
                             {...rest}
@@ -304,10 +471,16 @@ export const Table = ({
                               <div className="text-sm text-gray-500">
                                 {cell.render(
                                   "Cell",
-                                  cell.column.Header === "Action"
+                                  cell.column.Header === "Actions"
                                     ? {
-                                        handleDelete: () =>
-                                          handleDelete(cell.value),
+                                        handleDelete: async () => {
+                                          await handleDelete(cell.value);
+                                        },
+                                        queueItem: getQueueItemHelper(
+                                          row.values
+                                        ),
+                                        view,
+                                        key: cell.value,
                                       }
                                     : {}
                                 )}
@@ -315,10 +488,14 @@ export const Table = ({
                             ) : (
                               cell.render(
                                 "Cell",
-                                cell.column.Header === "Action"
+                                cell.column.Header === "Actions"
                                   ? {
-                                      handleDelete: () =>
-                                        handleDelete(cell.value),
+                                      handleDelete: async () => {
+                                        await handleDelete(cell.value);
+                                      },
+                                      queueItem: getQueueItemHelper(row.values),
+                                      view,
+                                      key: cell.value,
                                     }
                                   : {}
                               )
@@ -360,7 +537,7 @@ export const Table = ({
                   setPageSize(Number(e.target.value));
                 }}
               >
-                {[5, 10, 20].map((pageSize) => (
+                {[5, 10, 20, 50].map((pageSize) => (
                   <option key={pageSize} value={pageSize}>
                     Show {pageSize}
                   </option>
@@ -411,65 +588,13 @@ export const Table = ({
   );
 };
 
-function GlobalFilter({
-  preGlobalFilteredRows,
-  globalFilter,
-  setGlobalFilter,
-}: any) {
-  const count = preGlobalFilteredRows.length;
-  const [value, setValue] = React.useState(globalFilter);
-  const onChange = useAsyncDebounce((value) => {
-    setGlobalFilter(value || undefined);
-  }, 200);
+/**
+ * Instantiations of Table
+ */
+export const TopicsTable = (
+  props: Omit<TableProps, "columns">
+): JSX.Element => <Table columns={TOPICS_TABLE_COLUMNS} {...props} />;
 
-  return (
-    <label className="flex gap-x-2 items-baseline">
-      <span className="text-gray-700">Search: </span>
-      <input
-        type="text"
-        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-        value={value || ""}
-        onChange={(e) => {
-          setValue(e.target.value);
-          onChange(e.target.value);
-        }}
-        placeholder={`${count} records...`}
-      />
-    </label>
-  );
-}
-
-export function SelectColumnFilter({
-  column: { filterValue, setFilter, preFilteredRows, id, render },
-}: any) {
-  const options = React.useMemo(() => {
-    const options = new Set();
-    preFilteredRows.forEach((row: any) => {
-      options.add(row.values[id]);
-    });
-    //@ts-ignore
-    return [...options.values()];
-  }, [id, preFilteredRows]);
-
-  return (
-    <label className="flex gap-x-2 items-baseline">
-      <span className="text-gray-700">{render("Header")}: </span>
-      <select
-        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-        name={id}
-        id={id}
-        value={filterValue}
-        onChange={(e) => {
-          setFilter(e.target.value || undefined);
-        }}
-      >
-        <option value="">All</option>
-        {options.map((option, i) => (
-          <option key={i} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
+export const QuestionsTable = (
+  props: Omit<TableProps, "columns">
+): JSX.Element => <Table columns={QUESTIONS_TABLE_COLUMNS} {...props} />;
