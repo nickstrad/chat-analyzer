@@ -1,14 +1,11 @@
 import mongoose, { mongo } from "mongoose";
 import {
   APIRouteResponse,
-  AddTopicParams,
-  DeleteQuestionParams,
-  DeleteTopicParams,
   DequeueItemsParams,
   EnqueueItemsParams,
-  Question,
+  Item,
   Queue,
-  SaveQuestionsParams,
+  QueueMap,
   Topic,
   User,
   UserModel,
@@ -45,24 +42,20 @@ export const connectDB = async () => {
 /***************
  * User Helpers
  ***************/
-export const createUser = async ({
-  username,
-  ...update
-}: Partial<User>): Promise<APIRouteResponse> => {
+export const createUser = async (
+  user: Partial<User>
+): Promise<APIRouteResponse> => {
+  const { username, ...update } = user;
   if (!username) {
     return { error: "'username' must be set on new User" };
   }
 
-  const user = await UserModel.findOneAndUpdate(
-    { username },
-    { update },
-    {
-      new: true,
-      upsert: true,
-    }
-  );
+  const newUser = await UserModel.findOneAndUpdate({ username }, user, {
+    new: true,
+    upsert: true,
+  });
 
-  return user;
+  return newUser;
 };
 
 export const updateUser = async ({
@@ -119,352 +112,96 @@ export const deleteUser = async (
 };
 
 /****************
- * Topic Helpers
- ****************/
-
-export const deleteTopics = async ({
-  topicsKey,
-  topicIds,
-  username,
-}: DeleteTopicParams): Promise<APIRouteResponse> => {
-  if (!username) {
-    return { error: `'username' is empty` };
-  }
-
-  if (!topicsKey) {
-    return { error: `'topicsKey' is empty` };
-  }
-
-  if (!topicIds.length) {
-    return { error: `'topicIds' is an empty array` };
-  }
-
-  const user = await UserModel.findOne({ username });
-  if (!user) {
-    return { error: `User '${username}' does not exist` };
-  }
-
-  if (!user.topicsMap.has(topicsKey)) {
-    return {
-      error: `User '${username}' does not have a list of topics with the ${topicsKey} key.`,
-    };
-  }
-
-  const topics = user.topicsMap.get(topicsKey);
-  topicIds.forEach((id) => {
-    const topic = topics.id(id);
-    if (topic) {
-      topic.deleteOne();
-    }
-  });
-
-  await user.save();
-  return user.topicsMap.get(topicsKey);
-};
-
-export const updateTopics = async ({
-  topicsKey,
-  topics = [],
-  username,
-}: AddTopicParams): Promise<APIRouteResponse> => {
-  if (!username) {
-    return { error: `'username' is empty` };
-  }
-
-  if (!topicsKey) {
-    return { error: `'topicsKey' is empty` };
-  }
-
-  if (!topics.length) {
-    return { error: `'topics' is an empty array` };
-  }
-
-  const user = await UserModel.findOne({ username });
-
-  if (!user) {
-    return { error: `User '${username}' does not exist` };
-  }
-
-  if (!user.topicsMap) {
-    user.topicsMap = new Map<string, Topic[]>();
-    user.topicsMap.set(topicsKey, []);
-  }
-
-  user.topicsMap.set(
-    topicsKey,
-    user.topicsMap.has(topicsKey)
-      ? topics.concat(user.topicsMap.get(topicsKey))
-      : topics
-  );
-
-  await user.save();
-
-  return user.topicsMap.get(topicsKey);
-};
-
-export const getTopics = async (
-  username: string
-): Promise<APIRouteResponse> => {
-  if (!username) {
-    return { error: `'username' is empty` };
-  }
-
-  const user = await UserModel.findOne({ username });
-
-  if (!user) {
-    return { error: `User '${username}' does not exist` };
-  }
-
-  return user.topicsMap;
-};
-
-export const getTopicsForKey = async ({
-  username,
-  topicsKey,
-}: {
-  username: string;
-  topicsKey: string;
-}): Promise<APIRouteResponse> => {
-  if (!username) {
-    return { error: `'username' is empty` };
-  }
-
-  if (!topicsKey) {
-    return { error: `'topicsKey' is empty` };
-  }
-
-  const user = await UserModel.findOne({ username });
-
-  if (!user) {
-    return { error: `User '${username}' does not exist` };
-  }
-
-  return user.topicsMap.get(topicsKey);
-};
-
-/************
- * Questions
- ************/
-export const getAllSavedQuestions = async (
-  username: string
-): Promise<APIRouteResponse> => {
-  if (!username) {
-    return { error: `'username' is empty` };
-  }
-
-  const user = await UserModel.findOne({ username });
-
-  if (!user) {
-    return { error: `User '${username}' does not exist` };
-  }
-
-  return user.questionsMap;
-};
-
-export const getSavedQuestionsForKey = async ({
-  username,
-  questionsKey,
-}: {
-  username: string;
-  questionsKey: string;
-}): Promise<APIRouteResponse> => {
-  if (!username) {
-    return { error: `'username' is empty` };
-  }
-
-  if (!questionsKey) {
-    return { error: `'questionsKey' is empty` };
-  }
-
-  const user = await UserModel.findOne({ username });
-
-  if (!user) {
-    return { error: `User '${username}' does not exist` };
-  }
-
-  if (!user.questionsMap.has(questionsKey)) {
-    return {
-      error: `Key '${questionsKey}' does not exist for this users saved questions data.`,
-    };
-  }
-
-  return user.questionsMap.get(questionsKey);
-};
-
-export const saveQuestions = async ({
-  questions,
-  questionsKey,
-  username,
-}: SaveQuestionsParams): Promise<APIRouteResponse> => {
-  if (!questions.length) {
-    return { error: `'questions' is empty` };
-  }
-
-  if (!username) {
-    return { error: `'username' is empty` };
-  }
-
-  if (!questionsKey) {
-    return { error: `'questionsKey' is empty` };
-  }
-
-  const user = await UserModel.findOne({ username });
-
-  if (!user) {
-    return { error: `User '${username}' does not exist` };
-  }
-
-  if (!user.questionsMap.has(questionsKey)) {
-    user.questionsMap.set(questionsKey, []);
-  }
-
-  user.questionsMap.set(
-    questionsKey,
-    user.questionsMap.get(questionsKey).concat(questions)
-  );
-  await user.save();
-
-  return user.questionsMap.get(questionsKey);
-};
-
-export const deleteQuestions = async ({
-  questionIds,
-  questionsKey,
-  username,
-}: DeleteQuestionParams): Promise<APIRouteResponse> => {
-  if (!username) {
-    return { error: `'username' is empty` };
-  }
-
-  if (!questionsKey) {
-    return { error: `'questionsKey' is empty` };
-  }
-
-  if (!questionIds.length) {
-    return { error: `'questionIds' is an empty array` };
-  }
-
-  const user = await UserModel.findOne({ username });
-
-  if (!user) {
-    return { error: `User '${username}' does not exist` };
-  }
-
-  if (!user.questionsMap.has(questionsKey)) {
-    return {
-      error: `User '${username}' does not have a list of questions with the ${questionsKey} key.`,
-    };
-  }
-
-  const questions = user.questionsMap.get(questionsKey);
-  questionIds.forEach((id) => {
-    const question = questions.id(id);
-    if (question) {
-      question.deleteOne();
-    }
-  });
-
-  await user.save();
-  return user.questionsMap.get(questionsKey);
-};
-
-/****************
  * Queue Helpers
  ****************/
 
 export const dequeueItems = async ({
-  questionIds = [],
-  topicIds = [],
+  itemIds = [],
+  queueKey,
   username,
 }: DequeueItemsParams): Promise<APIRouteResponse> => {
   if (!username) {
     return { error: `'username' is empty` };
   }
 
-  if (!topicIds.length && !questionIds.length) {
-    return { error: `''questionIds' and topicIds' are empty arrays` };
+  if (!itemIds.length) {
+    return { error: `''itemIds' cannot be empty` };
   }
 
-  const updateMap = (acc: { [key: string]: boolean }, cur: string) => {
-    if (!(cur in acc)) {
-      acc[cur] = true;
-    }
-    return acc;
-  };
+  if (!queueKey) {
+    return { error: `'queueKey' cannot be empty` };
+  }
 
-  const topicSearchMap = topicIds.reduce(
-    updateMap,
-    {} as { [key: string]: boolean }
-  );
-
-  const questionSearchMap = questionIds.reduce(
-    updateMap,
-    {} as { [key: string]: boolean }
-  );
-
-  let user = await UserModel.findOne({ username });
+  const user = await UserModel.findOne({ username });
   if (!user) {
     return { error: `User '${username}' does not exist` };
   }
 
-  user = await UserModel.findOneAndUpdate(
-    { username },
-    {
-      queue: {
-        topics: user.queue.topics.filter(
-          (t: any) => !(t._id in topicSearchMap)
-        ),
-        questions: user.queue.questions.filter(
-          (t: any) => !(t._id in questionSearchMap)
-        ),
-      },
-    },
-    { new: true }
-  );
+  if (!user.queueMap.has(queueKey)) {
+    return {
+      error: `User '${username}' does not have a list of topics and questions with the ${queueKey} key.`,
+    };
+  }
+  console.log(user);
+  console.log("deleting items");
+  const items = user.queueMap.get(queueKey);
+  itemIds.forEach((id) => {
+    console.log(id);
+    const item = items.id(id);
+    if (item) {
+      item.deleteOne();
+    }
+  });
+  user.markModified("queueMap");
+  await user.save();
 
-  return user.queue;
+  console.log(user);
+
+  return user.queueMap;
 };
 
 export const enqueueItems = async ({
-  topics = [],
-  questions = [],
+  items = [],
+  queueKey = "",
   username,
 }: EnqueueItemsParams): Promise<APIRouteResponse> => {
   if (!username) {
     return { error: `'username' is empty` };
   }
 
-  if (!questions.length && !topics.length) {
-    return { error: `'topics' and 'questionss' are empty arrays` };
-  }
-  await UserModel.updateOne(
-    { username },
-    {
-      $push: {
-        "queue.topics": {
-          $each: topics.map((t) => ({
-            ...t,
-            _id: new mongoose.Types.ObjectId(),
-          })),
-        },
-        "queue.questions": {
-          $each: questions.map((q) => ({
-            ...q,
-            _id: new mongoose.Types.ObjectId(),
-          })),
-        },
-      },
-    }
-  );
-  const user = await UserModel.findOne({ username });
-  if (!user) {
-    return { error: `User '${username}' does not exist` };
+  if (!items.length) {
+    return { error: `'items' cannot be empty` };
   }
 
-  return user.queue;
+  const user = await UserModel.findOne({ username });
+
+  if (!user) {
+    return { error: `user ${username} does not exist` };
+  }
+
+  items = items.map((item) => ({
+    ...item,
+    _id: new mongoose.Types.ObjectId(),
+  }));
+
+  console.log(user);
+  const newItems = user.queueMap.has(queueKey)
+    ? user.queueMap.get(queueKey).concat(items)
+    : items;
+
+  user.queueMap.set(queueKey, newItems);
+
+  user.markModified("queueMap");
+
+  await user.save();
+  console.log(user);
+
+  return user.queueMap;
 };
 
-export const getQueue = async (username: string): Promise<APIRouteResponse> => {
+export const getQueueMap = async (
+  username: string
+): Promise<APIRouteResponse> => {
   if (!username) {
     return { error: `'username' is empty` };
   }
@@ -474,7 +211,36 @@ export const getQueue = async (username: string): Promise<APIRouteResponse> => {
   if (!user) {
     return { error: `User '${username}' does not exist` };
   }
-  console.log(user);
 
-  return user.queue;
+  return user.queueMap;
+};
+
+export const getQueue = async ({
+  username,
+  queueKey,
+}: {
+  username: string;
+  queueKey: string;
+}): Promise<APIRouteResponse> => {
+  if (!username) {
+    return { error: `'username' is empty` };
+  }
+
+  if (!queueKey) {
+    return { error: `'queueKey' is empty` };
+  }
+
+  const user = await UserModel.findOne({ username });
+
+  if (!user) {
+    return { error: `User '${username}' does not exist` };
+  }
+
+  if (!user.queueMap.has(queueKey)) {
+    return {
+      error: `queue key '${queueKey}' does not exist as a queue of topics and questions.`,
+    };
+  }
+
+  return user.queueMap.get(queueKey);
 };

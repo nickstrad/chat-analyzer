@@ -1,19 +1,18 @@
 import { runLiveStreamPrompt } from "@/utils";
 import { getServerSession } from "next-auth";
-import { authOptions } from "../auth/[...nextauth]/route";
+import { authOptions } from "@/utils/auth";
+
+const CHECK_API_SESSION = /true/i.test(process.env.CHECK_API_SESSION ?? "");
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
+  if (CHECK_API_SESSION) {
+    const session = await getServerSession(authOptions);
 
-  if (!session) {
-    return Response.json({ error: "Not signed in" }, { status: 401 });
+    if (!session) {
+      return Response.json({ error: "Not signed in" }, { status: 401 });
+    }
   }
-
-  if (!session.user) {
-    console.error("session set but user isnt'.");
-    return Response.json({ error: "session not configured" }, { status: 500 });
-  }
-
+  console.log("hereee");
   try {
     const comments = await req.json();
     const data = await runLiveStreamPrompt(comments);

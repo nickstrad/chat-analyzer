@@ -1,27 +1,19 @@
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]/route";
 import {
+  APIAction,
   connectDB,
   dequeueItems,
   DequeueItemsParams,
   enqueueItems,
   EnqueueItemsParams,
   getQueue,
+  getQueueMap,
 } from "@/utils";
-
-const CHECK_API_SESSION = /true/i.test(process.env.API_TESTING ?? "");
+import { validateUserAgainstSession } from "@/utils/auth";
 
 export async function GET(request: Request) {
-  if (CHECK_API_SESSION) {
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return Response.json({ error: "Not signed in" }, { status: 401 });
-    }
-  }
-
   const { searchParams } = new URL(request.url);
   const username = searchParams.get("username");
+  const queueKey = searchParams.get("queueKey");
   if (!username) {
     return Response.json(
       { error: "'username' cannot be empty" },
@@ -32,8 +24,21 @@ export async function GET(request: Request) {
   }
 
   try {
+    if (!validateUserAgainstSession(username)) {
+      return Response.json(
+        { error: `cannot make call for ${username}` },
+        {
+          status: 403,
+        }
+      );
+    }
+
     await connectDB();
-    return Response.json(await getQueue(username));
+    if (queueKey) {
+      return Response.json(await getQueue({ username, queueKey }));
+    }
+
+    return Response.json(await getQueueMap(username));
   } catch (err) {
     console.error(err);
     return Response.json({ error: "Serrver error." }, { status: 500 });
@@ -41,18 +46,10 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  if (CHECK_API_SESSION) {
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return Response.json({ error: "Not signed in" }, { status: 401 });
-    }
-  }
-
   const {
     username = "",
-    topics = [],
-    questions = [],
+    items = [],
+    queueKey = "",
   }: EnqueueItemsParams = await request.json();
 
   if (!username) {
@@ -64,13 +61,40 @@ export async function PATCH(request: Request) {
     );
   }
 
+  if (!items.length) {
+    return Response.json(
+      { error: "'items' list cannot be empty" },
+      {
+        status: 400,
+      }
+    );
+  }
+
+  if (!queueKey) {
+    return Response.json(
+      { error: "'queueKey' list cannot be empty" },
+      {
+        status: 400,
+      }
+    );
+  }
+
   try {
+    if (!validateUserAgainstSession(username)) {
+      return Response.json(
+        { error: `cannot make call for ${username}` },
+        {
+          status: 403,
+        }
+      );
+    }
+
     await connectDB();
     return Response.json(
       await enqueueItems({
         username,
-        topics,
-        questions,
+        items,
+        queueKey,
       })
     );
   } catch (err) {
@@ -80,18 +104,10 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (CHECK_API_SESSION) {
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return Response.json({ error: "Not signed in" }, { status: 401 });
-    }
-  }
-
   const {
     username = "",
-    questionIds = [],
-    topicIds = [],
+    itemIds = [],
+    queueKey = "",
   }: DequeueItemsParams = await request.json();
 
   if (!username) {
@@ -103,9 +119,18 @@ export async function DELETE(request: Request) {
     );
   }
 
-  if (!questionIds.length && !topicIds.length) {
+  if (!queueKey) {
     return Response.json(
-      { error: "'itemIds' and `questionIds` cannot both be empty" },
+      { error: "'queueKey' cannot be empty" },
+      {
+        status: 400,
+      }
+    );
+  }
+
+  if (!itemIds.length) {
+    return Response.json(
+      { error: "'items' list cannot be empty" },
       {
         status: 400,
       }
@@ -113,12 +138,20 @@ export async function DELETE(request: Request) {
   }
 
   try {
+    if (!validateUserAgainstSession(username)) {
+      return Response.json(
+        { error: `cannot make call for ${username}` },
+        {
+          status: 403,
+        }
+      );
+    }
     await connectDB();
     return Response.json(
       await dequeueItems({
         username,
-        questionIds,
-        topicIds,
+        queueKey,
+        itemIds,
       })
     );
   } catch (err) {

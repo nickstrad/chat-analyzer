@@ -1,9 +1,10 @@
 import Link from "next/link";
-import Image from "next/image";
 import { SignInButton, SignOutButton } from "@/components/buttons";
 import { getServerSession } from "next-auth";
-import { authOptions } from "./api/auth/[...nextauth]/route";
+import { authOptions } from "@/utils/auth";
 import AuthCheck from "@/components/AuthCheck";
+import logo from "@/public/images/logo.svg";
+import Image from "next/image";
 
 export default async function NavMenu() {
   const session: any = await getServerSession(authOptions);
@@ -11,9 +12,17 @@ export default async function NavMenu() {
   return (
     <nav className="navbar bg-base-100">
       <div className="flex-1">
+        {/* 
+        TODO: figure out how to get part I want of SVG
         <Link className="link link-hover" href="/">
-          ChatWrangler
-        </Link>
+          <Image
+            className="w-20 p-0 m-0"
+            priority
+            src={logo}
+            alt="ChatWrangler"
+          />
+        </Link> */}
+        ChatWrangler
       </div>
 
       <div>

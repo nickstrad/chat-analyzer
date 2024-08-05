@@ -16,11 +16,14 @@ import {
   //@ts-ignore
 } from "@heroicons/react/solid";
 import { MdOutlineDeleteOutline, MdQueue } from "react-icons/md";
+import { RiEmotionHappyLine } from "react-icons/ri";
 
 import {
   DequeueItemsParams,
   EnqueueItemsParams,
+  Item,
   Question,
+  Queue,
   Topic,
   View,
 } from "@/utils";
@@ -326,14 +329,29 @@ export function ActionCell({
  * Table
  *********/
 interface TableProps {
-  data: Topic[] | Question[];
-  handleDelete: (id: string) => Promise<void>;
+  data: Item[];
+  handleDelete: (id: Item) => void;
   handleEnqueueItem: (
-    params: Pick<EnqueueItemsParams, "questions" | "topics">
+    params: Pick<EnqueueItemsParams, "items">
   ) => Promise<void>;
   columns: typeof TOPICS_TABLE_COLUMNS | typeof QUESTIONS_TABLE_COLUMNS;
   view: View;
 }
+
+const getTopicFromCell = (cells: any): Item => ({
+  shortSummary: cells[0].value,
+  sentimentRating: cells[1].value,
+  longSummary: cells[2].value,
+});
+
+const getQuestionFromCell = (cells: any): Item => ({
+  question: cells[0].value,
+  user: cells[1].value,
+});
+
+type TableType = "QUESTIONS" | "TOPICS";
+const getType = (header: string): TableType =>
+  header === "Question" ? "QUESTIONS" : "TOPICS";
 
 const Table = ({
   data,
@@ -378,21 +396,20 @@ const Table = ({
 
   const getQueueItemHelper = React.useCallback(
     (item: Topic | Question) => async (): Promise<void> => {
-      if (view === "TOPICS") {
-        await handleEnqueueItem({
-          topics: [item as Topic],
-          questions: [],
-        });
-      } else if (view === "QUESTIONS") {
-        await handleEnqueueItem({
-          questions: [item as Question],
-          topics: [],
-        });
-      }
+      await handleEnqueueItem({
+        items: [item as Topic | Question],
+      });
     },
     [handleEnqueueItem, view]
   );
 
+  const handleItemDelete = async (cell: any) => {
+    if (getType(columns[0]?.Header) === "QUESTIONS") {
+      await handleDelete(getQuestionFromCell(cell.row.cells));
+    } else if (getType(columns[0]?.Header) === "TOPICS") {
+      await handleDelete(getTopicFromCell(cell.row.cells));
+    }
+  };
   return (
     <div className="mt-8 p-8 mt-4 shadow border-b border-gray-200">
       <div className="flex gap-x-2">
@@ -474,7 +491,7 @@ const Table = ({
                                   cell.column.Header === "Actions"
                                     ? {
                                         handleDelete: async () => {
-                                          await handleDelete(cell.value);
+                                          handleItemDelete(cell);
                                         },
                                         queueItem: getQueueItemHelper(
                                           row.values
@@ -491,7 +508,7 @@ const Table = ({
                                 cell.column.Header === "Actions"
                                   ? {
                                       handleDelete: async () => {
-                                        await handleDelete(cell.value);
+                                        handleItemDelete(cell);
                                       },
                                       queueItem: getQueueItemHelper(row.values),
                                       view,
@@ -598,3 +615,107 @@ export const TopicsTable = (
 export const QuestionsTable = (
   props: Omit<TableProps, "columns">
 ): JSX.Element => <Table columns={QUESTIONS_TABLE_COLUMNS} {...props} />;
+
+export const QueueTable = ({
+  dequeItem,
+  queue = [],
+}: {
+  dequeItem: (itemIds: Pick<DequeueItemsParams, "itemIds">) => Promise<void>;
+  queue: Queue;
+}) => {
+  const QuestionRow = ({
+    question,
+    idx,
+  }: {
+    question: Question;
+    idx: number;
+  }) => (
+    <>
+      <tr>
+        <th>{idx}</th>
+        <td>question</td>
+        <td>{JSON.stringify(question)}</td>
+        <MdOutlineDeleteOutline
+          className="text-red-600"
+          //@ts-ignore
+          onClick={() => dequeItem([question._id])}
+        />
+      </tr>
+    </>
+  );
+
+  const TopicRow = ({ topic, idx }: { topic: Topic; idx: number }) => (
+    <>
+      <th>{idx}</th>
+      <td>topic</td>
+      <td>
+        {" "}
+        <div
+          tabIndex={0}
+          className="collapse collapse-arrow border-base-300 bg-base-200 border"
+        >
+          <div className="collapse-title text-xl font-medium">
+            {topic.shortSummary}{" "}
+            <MdOutlineDeleteOutline
+              className="text-red-600"
+              //@ts-ignore
+              onClick={() => dequeItem([topic._id])}
+            />
+          </div>
+          <div className="collapse-content">
+            <div className="card bg-base-100 w-96 shadow-xl">
+              <div className="card-body">
+                <h2 className="card-title">
+                  {Number(topic.sentimentRating) >= 750 ? (
+                    <RiEmotionHappyLine />
+                  ) : null}
+                  {Number(topic.sentimentRating) > 333 &&
+                  Number(topic.sentimentRating) < 750 ? (
+                    <RiEmotionHappyLine />
+                  ) : null}
+                  {Number(topic.sentimentRating) <= 333 ? (
+                    <RiEmotionHappyLine />
+                  ) : null}
+                </h2>
+                <p>{topic.longSummary}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </td>
+    </>
+  );
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="table">
+        {/* head */}
+        <thead>
+          <tr>
+            <th></th>
+            <th>Type</th>
+            <th>Data</th>
+          </tr>
+        </thead>
+        <tbody>
+          {queue.map((item: Item, idx) => {
+            if (item.question) {
+              const question: Question = {
+                question: item.question!,
+                user: item.user!,
+              };
+              return <QuestionRow question={question} idx={idx} />;
+            } else if (item.longSummary) {
+              const topic: Topic = {
+                longSummary: item.longSummary!,
+                shortSummary: item.shortSummary!,
+                sentimentRating: item.sentimentRating!,
+              };
+              return <TopicRow topic={topic} idx={idx} />;
+            }
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+};

@@ -10,35 +10,29 @@ import { z } from "zod";
 /********************
  * TypeScript Types
  ********************/
-export type View = "TOPICS" | "QUESTIONS" | "QUEUE";
+export type View = "TOPICS" | "QUESTIONS" | "QUEUE" | "SETTINGS";
 export type Tier = "free" | "premium1";
-
+export type APIAction = "PATCH" | "DELETE" | "POST" | "GET";
+type ID = string | mongoose.Types.ObjectId;
 export interface Topic {
   shortSummary: String;
   sentimentRating: Number;
   longSummary: string;
-  _id?: string;
+  _id?: ID;
 }
 
 export interface Question {
   user: string;
   question: string;
+  _id?: ID;
 }
 
-export interface Queue {
-  topics: Topic[];
-  questions: Question[];
+export type Item = Partial<Question> & Partial<Topic>;
+export type Queue = Item[];
+export interface QueueObject {
+  [key: string]: Queue;
 }
-
-export type TopicsMap = Map<string, Topic[]>;
-export type QuestionsMap = Map<string, Topic[]>;
-
-const QUESTION_KEYS: {
-  [key: string]: keyof Question;
-} = {
-  USER: "user",
-  QUESTION: "question",
-};
+export type QueueMap = Map<string, Queue> | QueueObject;
 
 const TOPIC_KEYS: {
   [key: string]: keyof Topic;
@@ -46,22 +40,23 @@ const TOPIC_KEYS: {
   SHORT_SUMMARY: "shortSummary",
   SENTIMENT_RATING: "sentimentRating",
   LONG_SUMMARY: "longSummary",
+  ID: "_id",
 };
 
-const QUEUE_KEYS: {
-  [key: string]: keyof Queue;
+const QUESTION_KEYS: {
+  [key: string]: keyof Question;
 } = {
-  TOPICS: "topics",
-  QUESTIONS: "questions",
+  USER: "user",
+  QUESTION: "question",
+  ID: "_id",
 };
 
 export interface User {
   username: string;
   email: string;
   tier: Tier;
-  topicsMap: TopicsMap;
-  questionsMap: QuestionsMap;
-  queue: Queue;
+  queueMap: QueueMap;
+  currentQueueKey: string;
 }
 
 const USER_KEYS: {
@@ -70,9 +65,8 @@ const USER_KEYS: {
   USERNAME: "username",
   EMAIL: "email",
   TIER: "tier",
-  TOPICS_MAP: "topicsMap",
-  QUESTIONS_MAP: "questionsMap",
-  QUEUE: "queue",
+  QUEUE_MAP: "queueMap",
+  CURRENT_QUEUE_KEY: "currentQueueKey",
 };
 
 /**************
@@ -99,27 +93,25 @@ export const LLM_TOPICS_ARRAY_ZOD_SCHEMA = z.array(
 /*******************
  * mongoose schemas
  *******************/
-const TOPICS_SCHEMA_OBJECT = {
+
+const ITEM_SCHEMA = {
   [TOPIC_KEYS.SHORT_SUMMARY]: String,
   [TOPIC_KEYS.SENTIMENT_RATING]: Number,
   [TOPIC_KEYS.LONG_SUMMARY]: String,
-  [TOPIC_KEYS.UID]: String,
-};
-
-const QUESTIONS_SCHEMA_OBJECT = {
   [QUESTION_KEYS.USER]: String,
   [QUESTION_KEYS.QUESTION]: String,
+  [QUESTION_KEYS.ID]: mongoose.Types.ObjectId,
 };
 
-const QUEUE_SCHEMA_OBJECT = {
-  [QUEUE_KEYS.QUESTIONS]: {
-    of: [QUESTIONS_SCHEMA_OBJECT],
-    default: [] as Question[],
-  },
-  [QUEUE_KEYS.TOPICS]: {
-    of: [TOPICS_SCHEMA_OBJECT],
-    default: [] as Topic[],
-  },
+const DEFAUL_QUEUE_KEY = "default";
+const QUEUE_MAP_SCHEMA = {
+  type: Map,
+  default: new Map(
+    Object.entries({
+      [DEFAUL_QUEUE_KEY]: [],
+    } as any)
+  ) as QueueMap,
+  of: [ITEM_SCHEMA],
 };
 
 export const UserSchema = new mongoose.Schema<User>(
@@ -127,39 +119,13 @@ export const UserSchema = new mongoose.Schema<User>(
     [USER_KEYS.USERNAME]: { type: String, unique: true },
     [USER_KEYS.EMAIL]: { type: String, default: "" },
     [USER_KEYS.TIER]: { type: String, default: "free" as Tier },
-    [USER_KEYS.TOPICS_MAP]: {
-      type: Map,
-      default: new Map() as TopicsMap,
-      of: [TOPICS_SCHEMA_OBJECT],
-    },
-    [USER_KEYS.QUESTIONS_MAP]: {
-      type: Map,
-      default: new Map() as QuestionsMap,
-      of: [QUESTIONS_SCHEMA_OBJECT],
-    },
-    // [USER_KEYS.QUEUE]: {
-    //   type: Object,
-    //   default: { topics: [], questions: [] } as Queue,
-    //   of: {
-    //     of: QUEUE_SCHEMA_OBJECT,
-    //     default: { topics: [] as Topic[], questions: [] as Question[] },
-    //   },
-    // },
-    [USER_KEYS.QUEUE]: {
-      type: Object,
-      default: { topics: [], questions: [] } as Queue,
-      of: {
-        of: {
-          topics: [TOPICS_SCHEMA_OBJECT],
-          questions: [QUESTIONS_SCHEMA_OBJECT],
-        },
-      },
-    },
+    [USER_KEYS.QUEUE_MAP]: QUEUE_MAP_SCHEMA,
+    [USER_KEYS.CURRENT_QUEUE_KEY]: { type: String, default: DEFAUL_QUEUE_KEY },
   },
   {
     toJSON: {
       transform: function (doc, ret) {
-        delete ret._id;
+        ret._id = ret._id.toString();
       },
     },
   }
@@ -170,46 +136,22 @@ export const UserModel =
 /*********************
  * API route entities
  **********************/
-export interface AddTopicParams {
-  username: string;
-  topics: Topic[];
-  topicsKey: string;
-}
-
-export interface DeleteTopicParams {
-  username: string;
-  topicIds: string[];
-  topicsKey: string;
-}
-
-export interface SaveQuestionsParams {
-  username: string;
-  questionsKey: string;
-  questions: string[];
-}
-export interface DeleteQuestionParams {
-  username: string;
-  questionIds: string[];
-  questionsKey: string;
-}
-
 export interface EnqueueItemsParams {
   username: string;
-  topics?: Topic[];
-  questions?: Question[];
+  queueKey: string;
+  items?: Item[];
 }
 
 export interface DequeueItemsParams {
   username: string;
-  questionIds: string[];
-  topicIds: string[];
+  queueKey: string;
+  itemIds: string[];
 }
 
 export type APIRouteResponse =
-  | User
-  | Map<string, Topic[]>
-  | string[]
   | boolean
+  | User
+  | QueueMap
   | Queue
   | { error: string };
 

@@ -7,18 +7,9 @@ import {
   getUser,
   updateUser,
 } from "@/utils";
-import { authOptions } from "../auth/[...nextauth]/route";
-
-const CHECK_API_SESSION = /true/i.test(process.env.API_TESTING ?? "");
+import { validateUserAgainstSession } from "@/utils/auth";
 
 export async function GET(request: Request) {
-  if (CHECK_API_SESSION) {
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return Response.json({ error: "Not signed in" }, { status: 401 });
-    }
-  }
   const { searchParams } = new URL(request.url);
   const username = searchParams.get("username");
   if (!username) {
@@ -32,6 +23,14 @@ export async function GET(request: Request) {
   }
 
   try {
+    if (!validateUserAgainstSession(username)) {
+      return Response.json(
+        { error: `cannot make call for ${username}` },
+        {
+          status: 403,
+        }
+      );
+    }
     await connectDB();
     return Response.json(await getUser(username));
   } catch (err) {
@@ -41,18 +40,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (CHECK_API_SESSION) {
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return Response.json({ error: "Not signed in" }, { status: 401 });
-    }
-  }
-
   const user: User = await request.json();
 
   if (!user.username) {
-    Response;
     return Response.json(
       { error: "'username' cannot be empty" },
       {
@@ -62,6 +52,14 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (!validateUserAgainstSession(user.username)) {
+      return Response.json(
+        { error: `cannot make call for ${user.username}` },
+        {
+          status: 403,
+        }
+      );
+    }
     await connectDB();
     return Response.json(await createUser(user));
   } catch (err) {
@@ -71,14 +69,6 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  if (CHECK_API_SESSION) {
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return Response.json({ error: "Not signed in" }, { status: 401 });
-    }
-  }
-
   const user: User = await request.json();
 
   if (!user.username) {
@@ -92,6 +82,14 @@ export async function PATCH(request: Request) {
   }
 
   try {
+    if (!validateUserAgainstSession(user.username)) {
+      return Response.json(
+        { error: `cannot make call for ${user.username}` },
+        {
+          status: 403,
+        }
+      );
+    }
     await connectDB();
     return Response.json(await updateUser(user));
   } catch (err) {
@@ -101,14 +99,6 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (CHECK_API_SESSION) {
-    const session = await getServerSession(authOptions);
-
-    if (!session) {
-      return Response.json({ error: "Not signed in" }, { status: 401 });
-    }
-  }
-
   const user: User = await request.json();
 
   if (!user.username) {
@@ -122,6 +112,14 @@ export async function DELETE(request: Request) {
   }
 
   try {
+    if (!validateUserAgainstSession(user.username)) {
+      return Response.json(
+        { error: `cannot make call for ${user.username}` },
+        {
+          status: 403,
+        }
+      );
+    }
     await connectDB();
     return Response.json(await deleteUser(user.username));
   } catch (err) {

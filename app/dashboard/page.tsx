@@ -1,5 +1,5 @@
 import StreamWatcher from "./StreamWatcher";
-import { authOptions } from "../api/auth/[...nextauth]/route";
+import { authOptions } from "@/utils/auth";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import React from "react";
@@ -19,9 +19,5 @@ export default async function Dashboard() {
     console.error("Unable to get necessary access token");
   }
 
-  return (
-    <>
-      <StreamWatcher user={session.user} token={session.accessToken} />
-    </>
-  );
+  return <StreamWatcher user={session.user} token={session.accessToken} />;
 }
